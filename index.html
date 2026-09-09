@@ -1,0 +1,725 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Simulador de parcelamento · Solturi</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&display=swap');
+
+:root{
+  --red:#EC0000; --red-soft:#FDECEC; --bg:#F0F0F0; --card:#FFFFFF;
+  --ink:#1F1F1F; --mid:#6B6B6B; --line:#E6E6E6;
+}
+body.tema-cartao{--red:#1C1C1C;--red-soft:#EAEAEA;}
+body.tema-boleto{--red:#D9611C;--red-soft:#FBEDE3;}
+body.tema-promo{--red:#0E7A55;--red-soft:#E6F3ED;}
+
+/* tela de acesso */
+#gate{position:fixed;inset:0;z-index:60;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:24px}
+#gate .box{background:#fff;border-radius:20px;padding:28px 24px;max-width:340px;width:100%;box-shadow:0 6px 24px rgba(0,0,0,.10);text-align:center}
+#gate h2{font-size:17px;font-weight:700;margin-bottom:6px}
+#gate p{font-size:13px;color:var(--mid);margin-bottom:20px}
+#gate input{width:100%;font:inherit;font-size:19px;font-weight:700;text-align:center;letter-spacing:2px;border:2px solid var(--line);border-radius:14px;padding:12px;margin-bottom:12px}
+#gate input:focus{outline:0;border-color:var(--red)}
+#gate button{width:100%;border:0;border-radius:14px;background:var(--red);color:#fff;font-weight:700;font-size:15px;padding:13px}
+#gate .erro{color:var(--red);font-size:13px;font-weight:600;min-height:18px;margin-top:10px}
+body.travado{overflow:hidden}
+
+body.tema-cartao .parcela-box .rot,
+body.tema-cartao .parcela-box .det{color:#5A5A5A}
+body.tema-cartao .pills button[aria-pressed="true"],
+body.tema-cartao .pills button[aria-pressed="true"] small{color:#1C1C1C}
+body.tema-cartao .tabbar button[aria-pressed="true"]{color:#1C1C1C}
+body.tema-boleto .tabbar button[aria-pressed="true"]{color:#B14E12}
+body.tema-promo .tabbar button[aria-pressed="true"]{color:#0E7A55}
+body.tema-cartao .btn.perigo{color:#1C1C1C;border-color:#CFCFCF}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:'Archivo','Helvetica Neue',Arial,sans-serif;font-size:15px;line-height:1.4;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums;padding-bottom:96px}
+.hidden{display:none !important}
+button{font:inherit;cursor:pointer}
+.app{max-width:520px;margin:0 auto;transition:max-width .2s}
+body.wide .app{max-width:900px}
+
+.topo{background:var(--red);color:#fff;border-radius:0 0 26px 26px;padding:18px 22px 26px}
+.topo-linha{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}
+.marca{font-size:15px;font-weight:700;letter-spacing:.2px}
+.marca small{display:block;font-size:11px;font-weight:500;opacity:.75}
+.chip-prod{background:rgba(255,255,255,.16);border:0;color:#fff;font-size:12px;font-weight:600;padding:7px 14px;border-radius:999px}
+.rot-topo{font-size:12px;font-weight:600;opacity:.8}
+.valor-topo{font-size:38px;font-weight:700;letter-spacing:-.5px;line-height:1.15;margin-top:2px}
+.valor-topo .pref{font-size:.45em;font-weight:600;margin-right:.18em;opacity:.9}
+.sub-topo{font-size:13px;font-weight:500;opacity:.85;margin-top:2px;min-height:19px}
+
+.tela{padding:16px 16px 8px;display:flex;flex-direction:column;gap:14px}
+.cartao{background:var(--card);border-radius:18px;padding:18px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.cartao h3{font-size:13px;font-weight:700;color:var(--mid);margin-bottom:14px}
+
+.campo{margin-bottom:16px}
+.campo label{display:block;font-size:12px;font-weight:600;color:var(--mid);margin-bottom:4px}
+.campo input{width:100%;font:inherit;font-size:22px;font-weight:700;letter-spacing:-.3px;border:0;border-bottom:2px solid var(--line);background:transparent;padding:4px 0 8px;color:var(--ink)}
+.campo input:focus{outline:0;border-bottom-color:var(--red)}
+.campo input[readonly]{color:var(--ink);border-bottom-style:dashed;cursor:default}
+.nota{font-size:12px;color:var(--mid);margin-top:6px;min-height:16px}
+.nota.alerta{color:var(--red);font-weight:600}
+
+.parcela-box{background:var(--red-soft);border-radius:14px;padding:14px 16px;display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.parcela-box .rot{font-size:12px;font-weight:600;color:var(--red);opacity:.85}
+.parcela-box .v{font-size:28px;font-weight:700;color:var(--red);letter-spacing:-.4px;line-height:1.15}
+.parcela-box .v .pref{font-size:.5em;font-weight:600;margin-right:.15em}
+.parcela-box .det{font-size:12px;font-weight:600;color:var(--red);text-align:right;opacity:.9}
+
+.pills{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.pills button{background:#F5F5F5;border:2px solid transparent;border-radius:14px;padding:12px 6px;font-weight:700;font-size:17px;color:var(--ink);line-height:1.1}
+.pills button small{display:block;font-size:11px;font-weight:500;color:var(--mid);margin-top:2px}
+.pills button[aria-pressed="true"]{background:var(--red-soft);border-color:var(--red);color:var(--red)}
+.pills button[aria-pressed="true"] small{color:var(--red)}
+
+.grade{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
+.grade button{background:#F5F5F5;border:2px solid transparent;border-radius:12px;padding:10px 0;font-weight:600;font-size:14px;color:var(--ink)}
+.grade button[aria-pressed="true"]{background:var(--red);border-color:var(--red);color:#fff}
+.grade button[disabled]{color:#C9C9C9;background:#FAFAFA;cursor:not-allowed}
+button:focus-visible{outline:3px solid var(--red);outline-offset:2px}
+
+.linha{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
+.linha:first-child{border-top:0;padding-top:0}
+.linha span:first-child{font-size:13px;color:var(--mid)}
+.linha span:last-child{font-weight:700;font-size:15px}
+.linha.forte span:last-child{color:var(--red)}
+.vazio{font-size:14px;color:var(--mid)}
+
+.subtabs{display:flex;gap:8px}
+.subtabs button{background:var(--card);border:2px solid var(--line);border-radius:999px;padding:9px 16px;font-size:13px;font-weight:600;color:var(--mid)}
+.subtabs button[aria-pressed="true"]{background:var(--red);border-color:var(--red);color:#fff}
+.conf{display:flex;flex-wrap:wrap;gap:20px;align-items:flex-end}
+.conf .g{display:flex;flex-direction:column;gap:6px}
+.conf label{font-size:12px;font-weight:600;color:var(--mid)}
+.conf input[type=text]{font:inherit;font-weight:700;font-size:16px;width:92px;border:0;border-bottom:2px solid var(--line);padding:4px 0;background:transparent}
+.conf input:focus{outline:0;border-bottom-color:var(--red)}
+.acoes{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.btn{border:2px solid var(--line);background:var(--card);border-radius:999px;padding:8px 15px;font-size:13px;font-weight:600;color:var(--ink)}
+.btn:hover{border-color:var(--ink)}
+.btn.perigo{color:var(--red);border-color:#F3C9C9}
+.status{font-size:12px;font-weight:600;color:var(--mid);margin-left:auto}
+
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:0;text-align:center}
+thead th{font-size:12px;font-weight:700;color:var(--mid);padding:0 6px 10px}
+thead th:first-child{text-align:left}
+tbody tr{border-top:1px solid var(--line)}
+tbody td:first-child{text-align:left;font-weight:600;color:var(--mid);font-size:13px;width:74px}
+td input{width:100%;font:inherit;font-weight:600;font-size:14px;text-align:center;border:0;background:transparent;padding:9px 2px;border-radius:8px;color:var(--ink)}
+td input:focus{outline:0;background:var(--red-soft);color:var(--red)}
+td input::placeholder{color:#CFCFCF;font-weight:400}
+.fill{display:flex;gap:6px;justify-content:center;padding:6px 2px}
+.fill input{border:2px solid var(--line);border-radius:10px;background:#fff;padding:6px 4px;width:74px;text-align:center;font-weight:600}
+.fill button{border:2px solid var(--line);border-radius:10px;background:#fff;padding:0 10px;font-size:12px;font-weight:700}
+
+.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:20;background:#fff;border-top:1px solid var(--line);box-shadow:0 -2px 14px rgba(0,0,0,.07);display:flex;justify-content:center;gap:6px;padding:8px 10px calc(8px + env(safe-area-inset-bottom))}
+.tabbar button{background:transparent;border:0;border-radius:14px;padding:7px 6px;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10.5px;font-weight:600;color:var(--mid);min-width:60px}
+.tabbar button svg{flex:none}
+.tabbar button svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.tabbar button[aria-pressed="true"]{color:var(--red);background:var(--red-soft)}
+.aviso{font-size:12px;color:var(--mid);padding:4px 20px 0;line-height:1.5}
+
+@media (max-width:520px){ .grade{grid-template-columns:repeat(4,1fr)} .valor-topo{font-size:33px} }
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div id="gate">
+  <div class="box">
+    <h2>Acesso restrito</h2>
+    <p>Simulador comercial da Solturi. Informe o código de acesso.</p>
+    <input id="gateCod" type="password" inputmode="text" autocomplete="off" placeholder="código" aria-label="Código de acesso">
+    <button id="gateBtn">Entrar</button>
+    <p class="erro" id="gateErro"></p>
+  </div>
+</div>
+
+<div class="app">
+  <div class="topo">
+    <div class="topo-linha">
+      <div class="marca">Solturi<small>Simulador de parcelamento</small></div>
+      <button class="chip-prod" id="chipProd">Cessão de crédito</button>
+    </div>
+    <p class="rot-topo" id="rotTopo">Líquido para a Solturi</p>
+    <p class="valor-topo" id="valorTopo"><span class="pref">R$</span>0,00</p>
+    <p class="sub-topo" id="subTopo">Preencha os valores para simular</p>
+  </div>
+
+  <section class="tela" id="telaSim">
+    <div class="cartao">
+      <h3>Valores da venda</h3>
+      <div class="campo" id="campoTabela">
+        <label for="tabela">Valor de tabela</label>
+        <input id="tabela" inputmode="numeric" value="R$ 0,00">
+        <div class="nota" id="notaTabela"></div>
+      </div>
+      <div class="campo">
+        <label for="negociado" id="labelNegociado">Valor negociado</label>
+        <input id="negociado" inputmode="numeric" value="R$ 0,00">
+        <div class="nota" id="notaNegociado"></div>
+      </div>
+      <div class="campo" id="campoEntrada" style="margin-bottom:14px">
+        <label for="entradaVal">Valor de entrada</label>
+        <input id="entradaVal" readonly tabindex="-1" value="R$ 0,00">
+        <div class="nota" id="notaEntrada">Cobre a retenção do banco.</div>
+      </div>
+      <div class="parcela-box">
+        <div>
+          <p class="rot">Parcela</p>
+          <p class="v" id="valorParcela"><span class="pref">R$</span>0,00</p>
+        </div>
+        <p class="det" id="detParcela">selecione o prazo</p>
+      </div>
+    </div>
+
+    <div class="cartao" id="cartaoCarencia">
+      <h3>Carência da primeira parcela</h3>
+      <div class="pills" role="group" aria-label="Carência">
+        <button data-c="30" aria-pressed="true">30<small>dias</small></button>
+        <button data-c="60" aria-pressed="false">60<small>dias</small></button>
+        <button data-c="90" aria-pressed="false">90<small>dias</small></button>
+      </div>
+    </div>
+
+    <div class="cartao">
+      <h3>Parcelas</h3>
+      <div class="grade" id="grade" role="group" aria-label="Quantidade de parcelas"></div>
+    </div>
+
+    <div class="cartao">
+      <h3>Resumo da operação</h3>
+      <div id="linhas"><p class="vazio">Escolha o prazo para ver o resumo.</p></div>
+    </div>
+
+    <div class="cartao hidden" id="cartaoAjuste">
+      <h3>Ajuste por aumento de entrada</h3>
+      <div id="linhasAjuste"></div>
+    </div>
+  </section>
+
+  <section class="tela hidden" id="telaGestor" aria-hidden="true" style="display:none">
+    <div class="subtabs" role="group" aria-label="Produto do painel">
+      <button id="subCessao" aria-pressed="true">Cessão de crédito</button>
+      <button id="subCartao" aria-pressed="false">Cartão de crédito</button>
+      <button id="subBoleto" aria-pressed="false">Boleto Solturi</button>
+    </div>
+
+    <div class="cartao">
+      <h3>Regras comerciais</h3>
+      <div class="conf">
+        <div class="g">
+          <label for="descMax">Desconto máximo sobre a tabela (%)</label>
+          <input id="descMax" type="text" inputmode="decimal" value="8">
+        </div>
+        <div class="g">
+          <label for="entradaMin">Entrada mínima no boleto (%)</label>
+          <input id="entradaMin" type="text" inputmode="decimal" value="30">
+        </div>
+        <div class="g">
+          <label for="comissaoPct">Comissão sobre o líquido (%)</label>
+          <input id="comissaoPct" type="text" inputmode="decimal" value="0">
+        </div>
+        <span class="status" id="status"></span>
+      </div>
+    </div>
+
+    <div class="cartao">
+      <h3 id="tituloTaxas"></h3>
+      <div class="acoes" style="margin-bottom:12px">
+        <button class="btn" id="restaurar">Restaurar tabela padrão</button>
+        <button class="btn perigo" id="limpar">Limpar tabela</button>
+      </div>
+      <table>
+        <thead><tr id="cabecalho"></tr></thead>
+        <tbody id="corpoTaxas"></tbody>
+      </table>
+    </div>
+    <p class="aviso" id="avisoGestor"></p>
+  </section>
+</div>
+
+<nav class="tabbar" role="group" aria-label="Modalidades">
+  <button id="navCessao" aria-pressed="true">
+    <svg viewBox="0 0 24 24"><path d="M3 7h18v11H3z"/><path d="M3 11h18"/><path d="M7 15h4"/></svg>Cessão
+  </button>
+  <button id="navPromo" aria-pressed="false">
+    <svg viewBox="0 0 24 24"><path d="M20.5 12.6 12.1 21 3 11.9V3.5h8.4z"/><circle cx="7.6" cy="7.6" r="1.4"/><path d="M9.5 15.5 15 10"/></svg>Promoção
+  </button>
+  <button id="navCartao" aria-pressed="false">
+    <svg viewBox="0 0 24 24"><rect x="2.5" y="5.5" width="19" height="13" rx="2.5"/><path d="M2.5 10h19"/><path d="M6 14.5h4"/></svg>Cartão
+  </button>
+</nav>
+
+<script>
+(function(){
+  const PRAZO_MAX = 24;
+  const CARENCIAS = [30,60,90];
+  const CHAVE = 'solturi-parcelamento-v7';
+
+  const RET = [
+    ['2,09','4,13','6,13'],['3,11','5,13','7,11'],['4,11','6,11','8,07'],['5,11','7,09','9,02'],
+    ['6,09','8,04','9,96'],['7,05','8,99','10,89'],['8,00','9,92','11,80'],['8,94','10,84','12,70'],
+    ['9,87','11,75','13,59'],['10,92','12,80','14,65'],['11,83','13,70','15,52'],['12,73','14,58','16,38'],
+    ['13,90','15,76','17,58'],['14,79','16,63','18,44'],['15,67','17,49','19,28'],['16,53','18,34','20,10'],
+    ['17,39','19,17','20,92'],['18,23','20,00','21,73'],['19,06','20,81','22,52'],['19,88','21,61','23,30'],
+    ['20,68','22,40','24,08'],['21,48','23,18','24,84'],['22,26','23,94','25,59'],['21,73','23,30','24,85']
+  ];
+  const CARTAO = ['4,87','5,01','6,92','6,86','7,81','8,78','10,10','11,11','12,13','13,18','14,24',
+                  '15,33','16,43','17,56','18,71','19,88','21,07','22,29','23,54','24,81','26,10','','',''];
+
+  const BOLETO = ['0','0','0','0','0','1,35','2,5','2,5','2,5','2,5','2,5','2,5','2,5','2,5','2,5','','','','','','','','',''];
+  const cessaoPadrao = () => ({30:RET.map(l=>l[0]),60:RET.map(l=>l[1]),90:RET.map(l=>l[2])});
+  const boletoPadrao = () => BOLETO.slice();
+  const cartaoPadrao = () => CARTAO.slice();
+
+  const estado = {
+    produto:'cessao', tela:'sim', gestorProduto:'cessao',
+    descMax:8, comissaoPct:0,
+    cessao: cessaoPadrao(), cartao: cartaoPadrao(), boleto: boletoPadrao(),
+    entradaMin:30,
+    tabela:0, negociado:0, entrada:0, carencia:30,
+    prazo:{cessao:null,promo:null,cartao:null,boleto:null}
+  };
+
+  const brl = v => (isFinite(v)?v:0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const num = t => { const n = parseFloat(String(t).replace(/\./g,'').replace(',','.')); return isFinite(n)?n:NaN; };
+  const $ = s => document.querySelector(s);
+  const taxaDe = (p,n) => (p==='cessao'||p==='promo') ? estado.cessao[estado.carencia][n-1]
+                        : p==='cartao' ? estado.cartao[n-1] : estado.boleto[n-1];
+  const nomeProduto = p => p==='cessao' ? 'Cessão de crédito' : p==='promo' ? 'Promoção'
+                         : p==='cartao' ? 'Cartão de crédito' : 'Boleto Solturi';
+  const ehCessao = p => p==='cessao' || p==='promo';
+
+  // fator acumulado dos juros do boleto: parcela i = base × mult_i
+  function somaBoleto(n){
+    let mult = 1, soma = 0;
+    for(let i=1;i<=n;i++){
+      const j = num(estado.boleto[i-1]);
+      mult *= 1 + (isNaN(j)?0:j)/100;
+      soma += mult;
+    }
+    return soma;
+  }
+
+  function ligaDinheiro(el, chave){
+    const aplica = () => { el.value = 'R$ ' + brl(estado[chave]); };
+    el.addEventListener('input', () => {
+      const d = el.value.replace(/\D/g,'').slice(0,12);
+      estado[chave] = d ? parseInt(d,10)/100 : 0;
+      aplica();
+      if(chave!=='entrada') aplicaSugestao();
+      calcular();
+    });
+    el.addEventListener('focus', ()=>setTimeout(()=>el.setSelectionRange(el.value.length,el.value.length),0));
+    aplica();
+  }
+  ligaDinheiro($('#tabela'),'tabela');
+  ligaDinheiro($('#negociado'),'negociado');
+  ligaDinheiro($('#entradaVal'),'entrada');
+  $('#entradaVal').addEventListener('blur', ()=>{
+    if(ehCessao(estado.produto)){
+      const min = entradaMinima();
+      if(estado.entrada < min - 0.005){ estado.entrada = min; $('#entradaVal').value = 'R$ '+brl(min); }
+    }
+    if(estado.produto!=='cartao') calcular();
+  });
+
+  // retenção do prazo escolhido, em fração
+  function retencaoAtual(){
+    const prazo = estado.prazo[ehCessao(estado.produto) ? estado.produto : 'cessao'];
+    if(!prazo) return NaN;
+    const pct = num(estado.cessao[estado.carencia][prazo-1]);
+    return isNaN(pct) ? NaN : pct/100;
+  }
+  // sugestão ideal: só entra dinheiro quando a retenção passa da margem de desconto
+  function sugestaoEntrada(){
+    const r = retencaoAtual();
+    if(estado.negociado<=0 || isNaN(r)) return 0;
+    // promoção: a entrada repõe toda a retenção, líquido = preço da venda
+    if(estado.produto==='promo') return estado.negociado * r;
+    // cessão: só repõe o que a retenção passa da margem de desconto
+    if(estado.tabela<=0) return 0;
+    return Math.max(0, estado.tabela*(1-estado.descMax/100) - estado.negociado*(1-r));
+  }
+  function aplicaSugestao(){
+    if(!ehCessao(estado.produto)) return;
+    estado.entrada = sugestaoEntrada();
+    $('#entradaVal').value = 'R$ '+brl(estado.entrada);
+  }
+  // mínimo aceito: o desconto concedido precisa voltar em dinheiro
+  function entradaMinima(){ return sugestaoEntrada(); }
+
+  const grade = $('#grade');
+  for(let n=1;n<=PRAZO_MAX;n++){
+    const b = document.createElement('button');
+    b.textContent = n+'x'; b.dataset.n = n; b.setAttribute('aria-pressed','false');
+    b.addEventListener('click', ()=>{ estado.prazo[estado.produto]=n; pintaGrade(); aplicaSugestao(); calcular(); });
+    grade.appendChild(b);
+  }
+  function pintaGrade(){
+    grade.querySelectorAll('button').forEach(b=>{
+      const n = +b.dataset.n;
+      const tem = !isNaN(num(taxaDe(estado.produto,n)));
+      b.disabled = !tem;
+      if(!tem && estado.prazo[estado.produto]===n) estado.prazo[estado.produto]=null;
+      b.setAttribute('aria-pressed', String(estado.prazo[estado.produto]===n));
+    });
+  }
+  document.querySelectorAll('#cartaoCarencia button').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      estado.carencia = +b.dataset.c;
+      document.querySelectorAll('#cartaoCarencia button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
+      pintaGrade(); aplicaSugestao(); calcular();
+    });
+  });
+
+  function irPara(destino){
+    if(destino==='gestor') estado.tela='gestor';
+    else { estado.tela='sim'; estado.produto=destino; }
+    $('#navCessao').setAttribute('aria-pressed', String(estado.tela==='sim'&&estado.produto==='cessao'));
+    $('#navCartao').setAttribute('aria-pressed', String(estado.tela==='sim'&&estado.produto==='cartao'));
+    $('#navPromo').setAttribute('aria-pressed', String(estado.tela==='sim'&&estado.produto==='promo'));
+    $('#telaSim').classList.toggle('hidden', estado.tela!=='sim');
+    $('#telaGestor').classList.toggle('hidden', estado.tela!=='gestor');
+    document.body.classList.toggle('wide', estado.tela==='gestor');
+    aplicaTema();
+    const prod = estado.produto;
+    $('#cartaoCarencia').classList.toggle('hidden', !ehCessao(prod));
+    $('#campoTabela').classList.toggle('hidden', prod!=='cessao');
+    $('#campoEntrada').classList.toggle('hidden', prod==='cartao');
+    $('#labelNegociado').textContent = prod==='cessao' ? 'Valor negociado'
+                                     : prod==='promo' ? 'Preço da venda'
+                                     : prod==='cartao' ? 'Valor da venda' : 'Valor do projeto';
+    const ed = $('#entradaVal');
+    if(prod!=='cartao'){ ed.removeAttribute('readonly'); ed.removeAttribute('tabindex'); ed.setAttribute('inputmode','numeric'); ed.value='R$ '+brl(estado.entrada); }
+    else { ed.setAttribute('readonly',''); ed.setAttribute('tabindex','-1'); }
+    $('#chipProd').textContent = estado.tela==='gestor' ? 'Painel do gestor' : nomeProduto(estado.produto);
+    window.scrollTo({top:0});
+    if(estado.tela==='sim'){ pintaGrade(); aplicaSugestao(); calcular(); }
+    else montaTabela();
+  }
+  $('#navCessao').addEventListener('click', ()=>irPara('cessao'));
+  $('#navCartao').addEventListener('click', ()=>irPara('cartao'));
+  $('#navPromo').addEventListener('click', ()=>irPara('promo'));
+  const CICLO = ['cessao','promo','cartao'];
+  $('#chipProd').addEventListener('click', ()=>{
+    if(estado.tela!=='sim') return;
+    irPara(CICLO[(CICLO.indexOf(estado.produto)+1) % CICLO.length]);
+  });
+
+  function aplicaTema(){
+    const p = estado.tela==='gestor' ? estado.gestorProduto : estado.produto;
+    document.body.classList.toggle('tema-cartao', p==='cartao');
+    document.body.classList.toggle('tema-boleto', p==='boleto');
+    document.body.classList.toggle('tema-promo', p==='promo');
+  }
+
+  function trocaGestorProduto(p){
+    estado.gestorProduto = p;
+    aplicaTema();
+    $('#subCessao').setAttribute('aria-pressed', String(p==='cessao'));
+    $('#subCartao').setAttribute('aria-pressed', String(p==='cartao'));
+    $('#subBoleto').setAttribute('aria-pressed', String(p==='boleto'));
+    $('#tituloTaxas').textContent = p==='cessao' ? 'Retenção do banco por prazo e carência (%)'
+      : p==='cartao' ? 'Acréscimo ao cliente por número de parcelas (%)'
+      : 'Juros de cada parcela sobre a anterior (%)';
+    $('#avisoGestor').textContent = p==='cessao'
+      ? 'Percentual retido pelo Santander sobre o valor financiado, descontado no repasse. Prazos em branco não aparecem para o vendedor.'
+      : p==='cartao'
+      ? 'Percentual somado ao valor negociado e diluído nas parcelas do cliente. A tabela vai até 21x; 22x a 24x ficam indisponíveis.'
+      : 'Cada linha é o juro aplicado sobre a parcela anterior. O padrão é 0% até a 5ª, 1,35% na 6ª e 2,5% da 7ª em diante. O total é dividido em parcelas iguais. A tabela vai até 15x.';
+    montaTabela();
+  }
+  $('#subCessao').addEventListener('click', ()=>trocaGestorProduto('cessao'));
+  $('#subCartao').addEventListener('click', ()=>trocaGestorProduto('cartao'));
+  $('#subBoleto').addEventListener('click', ()=>trocaGestorProduto('boleto'));
+
+  function montaTabela(){
+    const p = estado.gestorProduto;
+    const cols = p==='cessao' ? CARENCIAS : ['unica'];
+    $('#cabecalho').innerHTML = '<th>Prazo</th>' + (p==='cessao'
+      ? CARENCIAS.map(c=>'<th>'+c+' dias</th>').join('')
+      : p==='cartao' ? '<th>Acréscimo (%)</th>' : '<th>Juros da parcela (%)</th>');
+
+    const corpo = $('#corpoTaxas'); corpo.innerHTML='';
+    const tr0 = document.createElement('tr');
+    tr0.innerHTML = '<td>Todos</td>';
+    cols.forEach(c=>{
+      const td = document.createElement('td');
+      const wrap = document.createElement('div'); wrap.className='fill';
+      const inp = document.createElement('input'); inp.type='text'; inp.inputMode='decimal'; inp.placeholder='%';
+      inp.setAttribute('aria-label','Preencher toda a coluna');
+      const bt = document.createElement('button'); bt.textContent='Aplicar';
+      bt.addEventListener('click', ()=>{
+        if(inp.value.trim()==='') return;
+        if(p==='cessao') estado.cessao[c] = Array(PRAZO_MAX).fill(inp.value.trim());
+        else if(p==='cartao') estado.cartao = Array(PRAZO_MAX).fill(inp.value.trim());
+        else estado.boleto = Array(PRAZO_MAX).fill(inp.value.trim());
+        montaTabela(); salvar(); pintaGrade(); calcular();
+      });
+      wrap.append(inp,bt); td.appendChild(wrap); tr0.appendChild(td);
+    });
+    corpo.appendChild(tr0);
+
+    for(let n=1;n<=PRAZO_MAX;n++){
+      const tr = document.createElement('tr');
+      const td0 = document.createElement('td'); td0.textContent = n+'x'; tr.appendChild(td0);
+      cols.forEach(c=>{
+        const td = document.createElement('td');
+        const i = document.createElement('input');
+        i.type='text'; i.inputMode='decimal'; i.placeholder='0,00';
+        i.value = p==='cessao' ? estado.cessao[c][n-1] : p==='cartao' ? estado.cartao[n-1] : estado.boleto[n-1];
+        i.setAttribute('aria-label', n+' parcelas'+(p==='cessao'?', carência de '+c+' dias':'')+', em porcento');
+        i.addEventListener('input', ()=>{
+          if(p==='cessao') estado.cessao[c][n-1]=i.value.trim();
+          else if(p==='cartao') estado.cartao[n-1]=i.value.trim();
+          else estado.boleto[n-1]=i.value.trim();
+          salvar(); pintaGrade(); calcular();
+        });
+        td.appendChild(i); tr.appendChild(td);
+      });
+      corpo.appendChild(tr);
+    }
+  }
+
+  $('#limpar').addEventListener('click', ()=>{
+    if(estado.gestorProduto==='cessao') CARENCIAS.forEach(c=> estado.cessao[c]=Array(PRAZO_MAX).fill(''));
+    else if(estado.gestorProduto==='cartao') estado.cartao = Array(PRAZO_MAX).fill('');
+    else estado.boleto = Array(PRAZO_MAX).fill('');
+    montaTabela(); salvar(); pintaGrade(); calcular();
+  });
+  $('#restaurar').addEventListener('click', ()=>{
+    if(estado.gestorProduto==='cessao') estado.cessao = cessaoPadrao();
+    else if(estado.gestorProduto==='cartao') estado.cartao = cartaoPadrao();
+    else estado.boleto = boletoPadrao();
+    montaTabela(); salvar(); pintaGrade(); calcular();
+  });
+  function ligaPct(sel, chave){
+    $(sel).addEventListener('input', e=>{ const v=num(e.target.value); estado[chave]=isNaN(v)?0:v; salvar(); calcular(); });
+  }
+  ligaPct('#descMax','descMax'); ligaPct('#comissaoPct','comissaoPct'); ligaPct('#entradaMin','entradaMin');
+
+  function zera(msg){
+    $('#cartaoAjuste').classList.add('hidden');
+    $('#valorTopo').innerHTML = '<span class="pref">R$</span>0,00';
+    $('#subTopo').textContent = msg;
+    $('#valorParcela').innerHTML = '<span class="pref">R$</span>0,00';
+    $('#detParcela').textContent = '—';
+    if(estado.produto==='cartao') $('#entradaVal').value = 'R$ 0,00';
+    $('#linhas').innerHTML = '<p class="vazio">'+msg+'</p>';
+  }
+
+  function calcular(){
+    const prod = estado.produto;
+    const minimo   = estado.tabela * (1 - estado.descMax/100);
+    const desconto = Math.max(0, estado.tabela - estado.negociado);
+    const pctDesc  = estado.tabela>0 ? ((estado.tabela-estado.negociado)/estado.tabela)*100 : 0;
+    const prazo    = estado.prazo[prod];
+
+    $('#notaTabela').textContent = estado.tabela>0
+      ? 'Piso da negociação: R$ '+brl(minimo)+' (−'+brl(estado.descMax)+'%)' : '';
+
+    const nN = $('#notaNegociado');
+    if(estado.tabela>0 && estado.negociado>0 && estado.negociado < minimo-0.005){
+      nN.className='nota alerta';
+      nN.textContent='Desconto de '+brl(pctDesc)+'% — acima do limite de '+brl(estado.descMax)+'%';
+    } else if(estado.tabela>0 && estado.negociado>0){
+      nN.className='nota';
+      nN.textContent = pctDesc>=0 ? 'Desconto de '+brl(pctDesc)+'% (R$ '+brl(desconto)+')'
+                                  : 'Acima da tabela em R$ '+brl(estado.negociado-estado.tabela);
+    } else { nN.className='nota'; nN.textContent=''; }
+
+    const notaE = $('#notaEntrada'); notaE.className='nota';
+    $('#rotTopo').textContent = ehCessao(prod) ? 'Líquido para a Solturi'
+                              : prod==='cartao' ? 'Valor total no cartão' : 'Total a receber';
+
+    if(!ehCessao(prod)) $('#cartaoAjuste').classList.add('hidden');
+
+    /* ---------- Boleto Solturi ---------- */
+    if(prod==='boleto'){
+      const projeto = estado.negociado, entradaB = estado.entrada;
+      const pctEnt  = projeto>0 ? (entradaB/projeto)*100 : 0;
+      if(projeto<=0){ notaE.textContent='Informe a entrada do cliente.'; return zera('Informe o valor do projeto'); }
+      if(entradaB>=projeto){ notaE.className='nota alerta'; notaE.textContent='A entrada não pode ser igual ou maior que o projeto.'; return zera('Entrada maior que o projeto'); }
+      if(pctEnt < estado.entradaMin - 0.0001){
+        notaE.className='nota alerta';
+        notaE.textContent='Entrada de '+brl(pctEnt)+'% — abaixo do mínimo de '+brl(estado.entradaMin)+'%';
+      } else notaE.textContent='Entrada de '+brl(pctEnt)+'% do projeto';
+      if(!prazo) return zera('Escolha o número de parcelas');
+
+      const residual = projeto - entradaB;
+      const totalJ   = (residual/prazo) * somaBoleto(prazo);
+      const juros    = totalJ - residual;
+      const parcelaB = totalJ / prazo;
+
+      $('#valorParcela').innerHTML = '<span class="pref">R$</span>'+brl(parcelaB);
+      $('#detParcela').textContent = prazo+'x no boleto';
+      $('#valorTopo').innerHTML = '<span class="pref">R$</span>'+brl(entradaB + totalJ);
+      $('#subTopo').textContent = 'Boleto Solturi · entrada + '+prazo+'x';
+      const lb = [
+        ['Valor do projeto','R$ '+brl(projeto)],
+        ['Entrada ('+brl(pctEnt)+'%)','R$ '+brl(entradaB)],
+        ['Saldo residual sem juros','R$ '+brl(residual)],
+        ['Valor total dos juros','R$ '+brl(juros)],
+        ['Saldo total com juros','R$ '+brl(totalJ)]
+      ];
+      $('#linhas').innerHTML = lb.map((x,i)=>
+        '<div class="linha'+(i===lb.length-1?' forte':'')+'"><span>'+x[0]+'</span><span>'+x[1]+'</span></div>').join('');
+      return;
+    }
+
+    if(estado.negociado<=0){ notaE.textContent = prod==='cessao'?'Cobre a retenção do banco.':'Não há entrada nesta modalidade.'; return zera('Preencha os valores para simular'); }
+    if(!ehCessao(prod) && estado.negociado < minimo-0.005){ notaE.textContent=''; return zera('Negociado abaixo do piso de R$ '+brl(minimo)); }
+    if(!prazo){ notaE.textContent=''; return zera('Escolha o número de parcelas'); }
+
+    const pct = num(taxaDe(prod, prazo));
+    if(isNaN(pct)){ notaE.textContent=''; return zera('Sem taxa cadastrada para esse prazo'); }
+
+    const r = pct/100;
+    let entrada, parcela, totalCliente, linhas, ajuste = null, financiadoFinal = 0;
+
+    if(ehCessao(prod)){
+      const minEnt   = entradaMinima();
+      const sugestao = sugestaoEntrada();
+      entrada = estado.entrada;
+      const extra      = Math.max(0, entrada - sugestao);
+      const abatimento = extra / (1 - r);            // cada real de entrada tira 1/(1−r) do financiado
+      const financiado = Math.max(0, estado.negociado - abatimento);
+      const retencao   = financiado * r;
+      const liberado   = financiado - retencao;
+      parcela      = financiado / prazo;
+      totalCliente = entrada + financiado;
+      ajuste = extra>0.005 ? {
+        sugestao: sugestao, extra: extra, abatimento: abatimento,
+        parcelaBase: estado.negociado / prazo,
+        totalBase: sugestao + estado.negociado,
+        financiado: financiado, parcela: parcela, total: totalCliente
+      } : null;
+      const excedente = brl(Math.max(0, pct - estado.descMax));
+      if(entrada < minEnt - 0.005){
+        notaE.className='nota alerta';
+        notaE.textContent = prod==='promo'
+          ? 'Mínimo de R$ '+brl(minEnt)+': repõe a retenção de '+brl(pct)+'% em '+prazo+'x.'
+          : 'Mínimo de R$ '+brl(minEnt)+' em '+prazo+'x: abaixo disso o líquido fura o piso.';
+      } else if(entrada > sugestao + 0.005){
+        notaE.textContent = 'Acima da sugestão: o financiado caiu R$ '+brl(abatimento);
+      } else if(prod==='promo'){
+        notaE.textContent = 'Repõe a retenção de '+brl(pct)+'%: o líquido fecha no preço da venda.';
+      } else if(sugestao<=0.005){
+        notaE.textContent = 'Sem entrada: a retenção de '+brl(pct)+'% cabe na margem de '+brl(estado.descMax)+'%.';
+      } else if(Math.abs(entrada - sugestao) < 0.005){
+        notaE.textContent = 'Repõe o que passa da margem em '+prazo+'x: retenção de '+brl(pct)+'% (+'+excedente+' p.p.)';
+      } else {
+        notaE.textContent = 'Sugestão para '+prazo+'x: R$ '+brl(sugestao)+' · mínimo aceito';
+      }
+      financiadoFinal = financiado;
+      linhas = [
+        [prod==='promo'?'Preço da venda':'Valor negociado','R$ '+brl(estado.negociado)],
+        ['Valor financiado','R$ '+brl(financiado)],
+        ['Retenção ('+brl(pct)+'%)','R$ '+brl(retencao)],
+        ['Liberado pelo Santander','R$ '+brl(liberado)],
+        ['Entrada em dinheiro','R$ '+brl(entrada)],
+        ['Total pago pelo cliente','R$ '+brl(totalCliente)]
+      ];
+    } else {
+      const acrescimo = estado.negociado * r;
+      entrada      = 0;
+      totalCliente = estado.negociado + acrescimo;
+      parcela      = totalCliente / prazo;
+      notaE.textContent = 'A taxa já está diluída nas parcelas.';
+      linhas = [
+        ['Valor do projeto','R$ '+brl(estado.negociado)],
+        ['Valor do projeto total','R$ '+brl(totalCliente)],
+        ['Valor do juros','R$ '+brl(acrescimo)],
+        ['Percentual do juros',brl(pct)+'%']
+      ];
+    }
+
+    const liquido = ehCessao(prod) ? entrada + financiadoFinal*(1-r) : estado.negociado;
+    if(prod==='cartao') $('#entradaVal').value = 'R$ '+brl(entrada);
+    $('#valorParcela').innerHTML = '<span class="pref">R$</span>'+brl(parcela);
+    $('#detParcela').textContent = prazo+'x'+(ehCessao(prod) ? ' · 1ª em '+estado.carencia+' dias' : ' no cartão');
+    $('#valorTopo').innerHTML = '<span class="pref">R$</span>'+brl(ehCessao(prod) ? liquido : totalCliente);
+    $('#subTopo').textContent = nomeProduto(prod)+' · '+prazo+'x'+(ehCessao(prod)?' · '+estado.carencia+' dias':'');
+
+    if(ehCessao(prod)){
+      if(desconto>0) linhas.push(['Desconto concedido','− R$ '+brl(desconto)]);
+      if(estado.comissaoPct>0) linhas.push(['Comissão ('+brl(estado.comissaoPct)+'%)','R$ '+brl(liquido*estado.comissaoPct/100)]);
+      linhas.push(['Líquido para a Solturi','R$ '+brl(liquido)]);
+    }
+
+    const ca = $('#cartaoAjuste');
+    if(ajuste){
+      ca.classList.remove('hidden');
+      const la = [
+        ['Entrada sugerida','R$ '+brl(ajuste.sugestao)],
+        ['Entrada informada','R$ '+brl(entrada)],
+        ['Redução do financiado','− R$ '+brl(ajuste.abatimento)],
+        ['Parcela sem o ajuste','R$ '+brl(ajuste.parcelaBase)],
+        ['Economia total do cliente','R$ '+brl(ajuste.totalBase - ajuste.total)]
+      ];
+      $('#linhasAjuste').innerHTML = la.map((x,i)=>
+        '<div class="linha'+(i===la.length-1?' forte':'')+'"><span>'+x[0]+'</span><span>'+x[1]+'</span></div>').join('');
+    } else ca.classList.add('hidden');
+
+    $('#linhas').innerHTML = linhas.map((x,i)=>
+      '<div class="linha'+(i===linhas.length-1?' forte':'')+'"><span>'+x[0]+'</span><span>'+x[1]+'</span></div>').join('');
+  }
+
+  let t;
+  function salvar(){
+    $('#status').textContent='Salvando…';
+    clearTimeout(t);
+    t = setTimeout(async ()=>{
+      const pacote = JSON.stringify({descMax:estado.descMax,comissaoPct:estado.comissaoPct,entradaMin:estado.entradaMin,cessao:estado.cessao,cartao:estado.cartao,boleto:estado.boleto});
+      try{
+        if(window.storage){ await window.storage.set(CHAVE,pacote); $('#status').textContent='Salvo'; }
+        else $('#status').textContent='Salvo nesta sessão';
+      }catch(e){ $('#status').textContent='Não foi possível salvar. Vale só nesta sessão.'; }
+    }, 400);
+  }
+
+  async function iniciar(){
+    try{
+      if(window.storage){
+        const r = await window.storage.get(CHAVE);
+        if(r && r.value){
+          const d = JSON.parse(r.value);
+          ['descMax','comissaoPct','entradaMin'].forEach(k=>{ if(typeof d[k]==='number') estado[k]=d[k]; });
+          CARENCIAS.forEach(c=>{ if(d.cessao && Array.isArray(d.cessao[c])) estado.cessao[c]=d.cessao[c]; });
+          if(Array.isArray(d.cartao)) estado.cartao=d.cartao;
+          if(Array.isArray(d.boleto)) estado.boleto=d.boleto;
+        }
+      }
+    }catch(e){}
+    $('#descMax').value = String(estado.descMax);
+    $('#comissaoPct').value = String(estado.comissaoPct);
+    $('#entradaMin').value = String(estado.entradaMin);
+    trocaGestorProduto('cessao');
+    irPara('cessao');
+  }
+  iniciar();
+})();
+</script>
+<script>
+(function(){
+  /* Código de acesso em base64. Para trocar, gere o base64 do novo código e substitua a linha abaixo. */
+  var ALVO = 'c29sdHVyaTIwMjY=';
+  var gate = document.getElementById('gate');
+  var campo = document.getElementById('gateCod');
+  var erro = document.getElementById('gateErro');
+  document.body.classList.add('travado');
+  function tenta(){
+    var v = (campo.value||'').trim().toLowerCase();
+    if(v && btoa(v) === ALVO){
+      gate.remove();
+      document.body.classList.remove('travado');
+    } else {
+      erro.textContent = 'Código inválido.';
+      campo.value=''; campo.focus();
+    }
+  }
+  document.getElementById('gateBtn').addEventListener('click', tenta);
+  campo.addEventListener('keydown', function(e){ if(e.key==='Enter') tenta(); });
+  setTimeout(function(){ campo.focus(); }, 100);
+})();
+</script>
