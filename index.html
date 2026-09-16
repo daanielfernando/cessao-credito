@@ -67,6 +67,8 @@ body.wide .app{max-width:900px}
 .parcela-box .det{font-size:12px;font-weight:600;color:var(--red);text-align:right;opacity:.9}
 
 .pills{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+#margemUso{width:100%;border:2px solid var(--line);border-radius:12px;padding:11px 12px;font-weight:600;background:#fff;color:var(--ink)}
+#margemUso:focus{outline:0;border-color:var(--red)}
 .pills button{background:#F5F5F5;border:2px solid transparent;border-radius:14px;padding:12px 6px;font-weight:700;font-size:17px;color:var(--ink);line-height:1.1}
 .pills button small{display:block;font-size:11px;font-weight:500;color:var(--mid);margin-top:2px}
 .pills button[aria-pressed="true"]{background:var(--red-soft);border-color:var(--red);color:var(--red)}
@@ -171,11 +173,18 @@ td input::placeholder{color:#CFCFCF;font-weight:400}
       </div>
     </div>
 
+    <div class="cartao" id="cartaoMargem">
+      <h3>Como a Solturi deve receber</h3>
+      <select id="margemUso" aria-label="Base do valor líquido"></select>
+      <p class="nota" id="notaMargem"></p>
+    </div>
+
     <div class="cartao" id="cartaoCarencia">
       <h3>Carência da primeira parcela</h3>
-      <div class="pills" role="group" aria-label="Carência" style="grid-template-columns:repeat(2,1fr)">
+      <div class="pills" role="group" aria-label="Carência">
         <button data-c="30" aria-pressed="true">30<small>dias</small></button>
         <button data-c="60" aria-pressed="false">60<small>dias</small></button>
+        <button data-c="90" aria-pressed="false">90<small>dias</small></button>
       </div>
     </div>
 
@@ -272,7 +281,7 @@ td input::placeholder{color:#CFCFCF;font-weight:400}
 
   const estado = {
     produto:'cessao', tela:'sim', gestorProduto:'cessao',
-    descMax:8, comissaoPct:0,
+    descMax:8, modoLiquido:'tabela', comissaoPct:0,
     cessao: cessaoPadrao(), cartao: cartaoPadrao(), boleto: boletoPadrao(),
     entradaMin:30,
     tabela:0, negociado:0, entrada:0, carencia:30,
@@ -337,8 +346,30 @@ td input::placeholder{color:#CFCFCF;font-weight:400}
     if(estado.produto==='promo') return estado.negociado * r;
     // cessão: só repõe o que a retenção passa da margem de desconto
     if(estado.tabela<=0) return 0;
-    return Math.max(0, estado.tabela*(1-estado.descMax/100) - estado.negociado*(1-r));
+    return Math.max(0, alvoLiquido() - estado.negociado*(1-r));
   }
+  // valor que a Solturi precisa receber líquido, conforme a escolha do vendedor
+  function alvoLiquido(){
+    if(estado.modoLiquido==='negociado') return estado.negociado;
+    if(estado.modoLiquido==='minimo')    return (estado.tabela>0?estado.tabela:estado.negociado) * (1 - estado.descMax/100);
+    return estado.tabela>0 ? estado.tabela : estado.negociado;
+  }
+  function montaMargem(){
+    const sel = $('#margemUso');
+    const ops = [
+      ['tabela',    'Receber sobre o valor de tabela'],
+      ['negociado', 'Receber sobre o valor negociado'],
+      ['minimo',    'Considerar o mínimo possível ('+brl(estado.descMax)+'%)']
+    ];
+    sel.innerHTML = '';
+    ops.forEach(([v,t])=>{
+      const o = document.createElement('option');
+      o.value = v; o.textContent = t;
+      if(v===estado.modoLiquido) o.selected = true;
+      sel.appendChild(o);
+    });
+  }
+
   function aplicaSugestao(){
     if(!ehCessao(estado.produto)) return;
     estado.entrada = sugestaoEntrada();
@@ -382,6 +413,7 @@ td input::placeholder{color:#CFCFCF;font-weight:400}
     document.body.classList.toggle('wide', estado.tela==='gestor');
     aplicaTema();
     const prod = estado.produto;
+    $('#cartaoMargem').classList.toggle('hidden', prod!=='cessao');
     $('#cartaoCarencia').classList.toggle('hidden', !ehCessao(prod));
     $('#campoTabela').classList.toggle('hidden', prod!=='cessao');
     $('#campoEntrada').classList.toggle('hidden', prod==='cartao');
@@ -493,8 +525,16 @@ td input::placeholder{color:#CFCFCF;font-weight:400}
     montaTabela(); salvar(); pintaGrade(); calcular();
   });
   function ligaPct(sel, chave){
-    $(sel).addEventListener('input', e=>{ const v=num(e.target.value); estado[chave]=isNaN(v)?0:v; salvar(); calcular(); });
+    $(sel).addEventListener('input', e=>{
+      const v=num(e.target.value); estado[chave]=isNaN(v)?0:v;
+      if(chave==='descMax'){ montaMargem(); aplicaSugestao(); }
+      salvar(); calcular();
+    });
   }
+  $('#margemUso').addEventListener('change', e=>{
+    estado.modoLiquido = e.target.value;
+    aplicaSugestao(); calcular();
+  });
   ligaPct('#descMax','descMax'); ligaPct('#comissaoPct','comissaoPct'); ligaPct('#entradaMin','entradaMin');
 
   function zera(msg){
@@ -509,7 +549,8 @@ td input::placeholder{color:#CFCFCF;font-weight:400}
 
   function calcular(){
     const prod = estado.produto;
-    const minimo   = estado.tabela * (1 - estado.descMax/100);
+    const minimo   = prod==='cessao' ? alvoLiquido() : estado.tabela * (1 - estado.descMax/100);
+    const limiteNeg = estado.tabela * (1 - estado.descMax/100);
     const desconto = Math.max(0, estado.tabela - estado.negociado);
     const pctDesc  = estado.tabela>0 ? ((estado.tabela-estado.negociado)/estado.tabela)*100 : 0;
     const prazo    = estado.prazo[prod];
@@ -518,7 +559,13 @@ td input::placeholder{color:#CFCFCF;font-weight:400}
       ? 'Piso da negociação: R$ '+brl(minimo)+' (−'+brl(estado.descMax)+'%)' : '';
 
     const nN = $('#notaNegociado');
-    if(estado.tabela>0 && estado.negociado>0 && estado.negociado < minimo-0.005){
+    $('#notaMargem').textContent = (prod==='cessao' && estado.negociado>0)
+      ? 'Líquido alvo: R$ '+brl(minimo)+
+        (estado.modoLiquido==='tabela' ? ' · nenhum desconto sai da margem'
+         : estado.modoLiquido==='negociado' ? ' · o desconto dado fica por conta da Solturi'
+         : ' · desconto máximo concedido')
+      : '';
+    if(estado.tabela>0 && estado.negociado>0 && estado.negociado < limiteNeg-0.005){
       nN.className='nota alerta';
       nN.textContent='Desconto de '+brl(pctDesc)+'% — acima do limite de '+brl(estado.descMax)+'%';
     } else if(estado.tabela>0 && estado.negociado>0){
@@ -593,7 +640,7 @@ td input::placeholder{color:#CFCFCF;font-weight:400}
         totalBase: sugestao + estado.negociado,
         financiado: financiado, parcela: parcela, total: totalCliente
       } : null;
-      const excedente = brl(Math.max(0, pct - estado.descMax));
+      const alvoTxt = brl(minEnt>0 ? sugestao : 0);
       if(entrada < minEnt - 0.005){
         notaE.className='nota alerta';
         notaE.textContent = prod==='promo'
@@ -604,9 +651,9 @@ td input::placeholder{color:#CFCFCF;font-weight:400}
       } else if(prod==='promo'){
         notaE.textContent = 'Repõe a retenção de '+brl(pct)+'%: o líquido fecha no preço da venda.';
       } else if(sugestao<=0.005){
-        notaE.textContent = 'Sem entrada: a retenção de '+brl(pct)+'% cabe na margem de '+brl(estado.descMax)+'%.';
+        notaE.textContent = 'Sem entrada: a retenção de '+brl(pct)+'% já cabe no alvo escolhido.';
       } else if(Math.abs(entrada - sugestao) < 0.005){
-        notaE.textContent = 'Repõe o que passa da margem em '+prazo+'x: retenção de '+brl(pct)+'% (+'+excedente+' p.p.)';
+        notaE.textContent = 'Ajustada para o líquido fechar em R$ '+brl(minimo)+' (retenção de '+brl(pct)+'%).';
       } else {
         notaE.textContent = 'Sugestão para '+prazo+'x: R$ '+brl(sugestao)+' · mínimo aceito';
       }
@@ -693,6 +740,7 @@ td input::placeholder{color:#CFCFCF;font-weight:400}
     $('#descMax').value = String(estado.descMax);
     $('#comissaoPct').value = String(estado.comissaoPct);
     $('#entradaMin').value = String(estado.entradaMin);
+    montaMargem();
     trocaGestorProduto('cessao');
     irPara('cessao');
   }
