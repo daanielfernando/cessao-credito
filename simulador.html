@@ -67,6 +67,12 @@ body.wide .app{max-width:900px}
 .parcela-box .det{font-size:12px;font-weight:600;color:var(--red);text-align:right;opacity:.9}
 
 .pills{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.banner{background:#FFF6E8;border:1px solid #F0C98A;border-radius:14px;padding:14px 16px;margin-bottom:14px}
+.banner p{font-size:13.5px;font-weight:600;color:#8A5A00;margin-bottom:10px;line-height:1.4}
+.banner .acoes{display:flex;gap:8px;flex-wrap:wrap}
+.banner button{border:0;border-radius:11px;padding:10px 16px;font-size:13px;font-weight:700;color:#fff}
+#btnAjustar{background:#0E7A55}
+#btnContinuar{background:#D12A2A}
 #margemUso{width:100%;border:2px solid var(--line);border-radius:12px;padding:11px 12px;font-weight:600;background:#fff;color:var(--ink)}
 #margemUso:focus{outline:0;border-color:var(--red)}
 .pills button{background:#F5F5F5;border:2px solid transparent;border-radius:14px;padding:12px 6px;font-weight:700;font-size:17px;color:var(--ink);line-height:1.1}
@@ -154,6 +160,14 @@ td input::placeholder{color:#CFCFCF;font-weight:400}
         <input id="entradaVal" readonly tabindex="-1" value="R$ 0,00">
         <div class="nota" id="notaEntrada">Cobre a retenção do banco.</div>
       </div>
+      <div class="banner hidden" id="bannerEntrada">
+        <p id="bannerTexto"></p>
+        <div class="acoes">
+          <button id="btnAjustar">Ajustar para o mínimo</button>
+          <button id="btnContinuar">Continuar assim mesmo</button>
+        </div>
+      </div>
+
       <div class="parcela-box">
         <div>
           <p class="rot">Parcela</p>
@@ -245,6 +259,9 @@ td input::placeholder{color:#CFCFCF;font-weight:400}
   <button id="navCartao" aria-pressed="false">
     <svg viewBox="0 0 24 24"><rect x="2.5" y="5.5" width="19" height="13" rx="2.5"/><path d="M2.5 10h19"/><path d="M6 14.5h4"/></svg>Cartão
   </button>
+  <button id="navBoleto" aria-pressed="false">
+    <svg viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="15" rx="2"/><path d="M7 9h10M7 12.5h10M7 16h6"/></svg>Boleto
+  </button>
 </nav>
 
 <script>
@@ -264,7 +281,7 @@ td input::placeholder{color:#CFCFCF;font-weight:400}
   const CARTAO = ['4,87','5,01','6,92','6,86','7,81','8,78','10,10','11,11','12,13','13,18','14,24',
                   '15,33','16,43','17,56','18,71','19,88','21,07','22,29','23,54','24,81','26,10','','',''];
 
-  const BOLETO = ['0','0','0','0','0','1,35','2,5','2,5','2,5','2,5','2,5','2,5','2,5','2,5','2,5','','','','','','','','',''];
+  const BOLETO = ['0','0','0','0','0','2','2','2','2','2','2','2','2','2','2','','','','','','','','',''];
   const cessaoPadrao = () => ({30:RET.map(l=>l[0]),60:RET.map(l=>l[1]),90:RET.map(l=>l[2])});
   const boletoPadrao = () => BOLETO.slice();
   const cartaoPadrao = () => CARTAO.slice();
@@ -273,7 +290,7 @@ td input::placeholder{color:#CFCFCF;font-weight:400}
     produto:'cessao', tela:'sim', gestorProduto:'cessao',
     descMax:8, modoLiquido:'tabela', comissaoPct:0,
     cessao: cessaoPadrao(), cartao: cartaoPadrao(), boleto: boletoPadrao(),
-    entradaMin:30,
+    entradaMin:30, boletoLiberado:false,
     tabela:0, negociado:0, entrada:0, carencia:30,
     prazo:{cessao:null,promo:null,cartao:null,boleto:null}
   };
@@ -287,15 +304,10 @@ td input::placeholder{color:#CFCFCF;font-weight:400}
                          : p==='cartao' ? 'Cartão de crédito' : 'Boleto Solturi';
   const ehCessao = p => p==='cessao' || p==='promo';
 
-  // fator acumulado dos juros do boleto: parcela i = base × mult_i
-  function somaBoleto(n){
-    let mult = 1, soma = 0;
-    for(let i=1;i<=n;i++){
-      const j = num(estado.boleto[i-1]);
-      mult *= 1 + (isNaN(j)?0:j)/100;
-      soma += mult;
-    }
-    return soma;
+  // boleto: juros simples de X% ao mês sobre o saldo parcelado
+  function jurosBoleto(n){
+    const j = num(estado.boleto[n-1]);
+    return isNaN(j) ? 0 : (j/100) * n;
   }
 
   function ligaDinheiro(el, chave){
@@ -303,6 +315,7 @@ td input::placeholder{color:#CFCFCF;font-weight:400}
     el.addEventListener('input', () => {
       const d = el.value.replace(/\D/g,'').slice(0,12);
       estado[chave] = d ? parseInt(d,10)/100 : 0;
+      estado.boletoLiberado = false;
       aplica();
       if(chave!=='entrada') aplicaSugestao();
       calcular();
@@ -344,6 +357,15 @@ td input::placeholder{color:#CFCFCF;font-weight:400}
     if(estado.modoLiquido==='minimo')    return (estado.tabela>0?estado.tabela:estado.negociado) * (1 - estado.descMax/100);
     return estado.tabela>0 ? estado.tabela : estado.negociado;
   }
+
+  $('#btnAjustar').addEventListener('click', ()=>{
+    estado.entrada = Math.ceil(estado.negociado * estado.entradaMin) / 100;
+    estado.boletoLiberado = false;
+    $('#entradaVal').value = 'R$ '+brl(estado.entrada);
+    calcular();
+  });
+  $('#btnContinuar').addEventListener('click', ()=>{ estado.boletoLiberado = true; calcular(); });
+
   function montaMargem(){
     const sel = $('#margemUso');
     const ops = [
@@ -398,11 +420,13 @@ td input::placeholder{color:#CFCFCF;font-weight:400}
     $('#navCessao').setAttribute('aria-pressed', String(estado.tela==='sim'&&estado.produto==='cessao'));
     $('#navCartao').setAttribute('aria-pressed', String(estado.tela==='sim'&&estado.produto==='cartao'));
     $('#navPromo').setAttribute('aria-pressed', String(estado.tela==='sim'&&estado.produto==='promo'));
+    $('#navBoleto').setAttribute('aria-pressed', String(estado.tela==='sim'&&estado.produto==='boleto'));
     $('#telaSim').classList.toggle('hidden', estado.tela!=='sim');
     $('#telaGestor').classList.toggle('hidden', estado.tela!=='gestor');
     document.body.classList.toggle('wide', estado.tela==='gestor');
     aplicaTema();
     const prod = estado.produto;
+    $('#bannerEntrada').classList.add('hidden');
     $('#cartaoMargem').classList.toggle('hidden', prod!=='cessao');
     $('#cartaoCarencia').classList.toggle('hidden', !ehCessao(prod));
     $('#campoTabela').classList.toggle('hidden', prod!=='cessao');
@@ -421,6 +445,7 @@ td input::placeholder{color:#CFCFCF;font-weight:400}
   $('#navCessao').addEventListener('click', ()=>irPara('cessao'));
   $('#navCartao').addEventListener('click', ()=>irPara('cartao'));
   $('#navPromo').addEventListener('click', ()=>irPara('promo'));
+  $('#navBoleto').addEventListener('click', ()=>irPara('boleto'));
   const CICLO = ['cessao','promo','cartao'];
   $('#chipProd').addEventListener('click', ()=>{
     if(estado.tela!=='sim') return;
@@ -442,12 +467,12 @@ td input::placeholder{color:#CFCFCF;font-weight:400}
     $('#subBoleto').setAttribute('aria-pressed', String(p==='boleto'));
     $('#tituloTaxas').textContent = p==='cessao' ? 'Retenção do banco por prazo e carência (%)'
       : p==='cartao' ? 'Acréscimo ao cliente por número de parcelas (%)'
-      : 'Juros de cada parcela sobre a anterior (%)';
+      : 'Juros ao mês por número de parcelas (%)';
     $('#avisoGestor').textContent = p==='cessao'
       ? 'Percentual retido pelo Santander sobre o valor financiado, descontado no repasse. Prazos em branco não aparecem para o vendedor.'
       : p==='cartao'
       ? 'Percentual somado ao valor negociado e diluído nas parcelas do cliente. A tabela vai até 21x; 22x a 24x ficam indisponíveis.'
-      : 'Cada linha é o juro aplicado sobre a parcela anterior. O padrão é 0% até a 5ª, 1,35% na 6ª e 2,5% da 7ª em diante. O total é dividido em parcelas iguais. A tabela vai até 15x.';
+      : 'Juros simples: a taxa da linha multiplica o número de parcelas e incide sobre o saldo. Padrão 0% até 5x e 2% ao mês de 6x a 15x. O total é dividido em parcelas iguais e a tabela vai até 15x.';
     montaTabela();
   }
   $('#subCessao').addEventListener('click', ()=>trocaGestorProduto('cessao'));
@@ -459,7 +484,7 @@ td input::placeholder{color:#CFCFCF;font-weight:400}
     const cols = p==='cessao' ? CARENCIAS : ['unica'];
     $('#cabecalho').innerHTML = '<th>Prazo</th>' + (p==='cessao'
       ? CARENCIAS.map(c=>'<th>'+c+' dias</th>').join('')
-      : p==='cartao' ? '<th>Acréscimo (%)</th>' : '<th>Juros da parcela (%)</th>');
+      : p==='cartao' ? '<th>Acréscimo (%)</th>' : '<th>Juros ao mês (%)</th>');
 
     const corpo = $('#corpoTaxas'); corpo.innerHTML='';
     const tr0 = document.createElement('tr');
@@ -574,17 +599,30 @@ td input::placeholder{color:#CFCFCF;font-weight:400}
     if(prod==='boleto'){
       const projeto = estado.negociado, entradaB = estado.entrada;
       const pctEnt  = projeto>0 ? (entradaB/projeto)*100 : 0;
-      if(projeto<=0){ notaE.textContent='Informe a entrada do cliente.'; return zera('Informe o valor do projeto'); }
+      const minEntB = projeto * estado.entradaMin/100;
+      const banner  = $('#bannerEntrada');
+      banner.classList.add('hidden');
+      if(projeto<=0){ notaE.textContent='Informe o valor do projeto e a entrada.'; return zera('Informe o valor do projeto'); }
       if(entradaB>=projeto){ notaE.className='nota alerta'; notaE.textContent='A entrada não pode ser igual ou maior que o projeto.'; return zera('Entrada maior que o projeto'); }
       if(pctEnt < estado.entradaMin - 0.0001){
         notaE.className='nota alerta';
-        notaE.textContent='Entrada de '+brl(pctEnt)+'% — abaixo do mínimo de '+brl(estado.entradaMin)+'%';
-      } else notaE.textContent='Entrada de '+brl(pctEnt)+'% do projeto';
+        if(!estado.boletoLiberado){
+          notaE.textContent='Entrada de '+brl(pctEnt)+'% — mínimo de '+brl(estado.entradaMin)+'%';
+          $('#bannerTexto').textContent = 'Valor abaixo do permitido. A entrada está em '+brl(pctEnt)+'% e o mínimo é '+brl(estado.entradaMin)+'%, o que dá R$ '+brl(minEntB)+'.';
+          banner.classList.remove('hidden');
+          return zera('Ajuste a entrada para seguir');
+        }
+        notaE.textContent='Entrada de '+brl(pctEnt)+'% — abaixo do mínimo, liberada pelo representante';
+      } else {
+        estado.boletoLiberado = false;
+        notaE.textContent='Entrada de '+brl(pctEnt)+'% do projeto';
+      }
       if(!prazo) return zera('Escolha o número de parcelas');
 
       const residual = projeto - entradaB;
-      const totalJ   = (residual/prazo) * somaBoleto(prazo);
-      const juros    = totalJ - residual;
+      const taxaMes  = num(estado.boleto[prazo-1]) || 0;
+      const juros    = residual * jurosBoleto(prazo);
+      const totalJ   = residual + juros;
       const parcelaB = totalJ / prazo;
 
       $('#valorParcela').innerHTML = '<span class="pref">R$</span>'+brl(parcelaB);
@@ -595,8 +633,9 @@ td input::placeholder{color:#CFCFCF;font-weight:400}
         ['Valor do projeto','R$ '+brl(projeto)],
         ['Entrada ('+brl(pctEnt)+'%)','R$ '+brl(entradaB)],
         ['Saldo residual sem juros','R$ '+brl(residual)],
-        ['Valor total dos juros','R$ '+brl(juros)],
-        ['Saldo total com juros','R$ '+brl(totalJ)]
+        ['Juros ('+brl(taxaMes)+'% a.m. × '+prazo+')','R$ '+brl(juros)],
+        ['Saldo total com juros','R$ '+brl(totalJ)],
+        ['Valor total a receber','R$ '+brl(entradaB + totalJ)]
       ];
       $('#linhas').innerHTML = lb.map((x,i)=>
         '<div class="linha'+(i===lb.length-1?' forte':'')+'"><span>'+x[0]+'</span><span>'+x[1]+'</span></div>').join('');
