@@ -642,9 +642,7 @@ td input::placeholder{color:#CFCFCF;font-weight:400}
       const lb = [
         ['Valor do projeto','R$ '+brl(projeto)],
         ['Entrada ('+brl(pctEnt)+'%)','R$ '+brl(entradaB)],
-        ['Saldo residual sem juros','R$ '+brl(residual)],
-        ['Juros ('+brl(taxaMes)+'% a.m. × '+prazo+')','R$ '+brl(juros)],
-        ['Saldo total com juros','R$ '+brl(totalJ)],
+        [prazo+'x de','R$ '+brl(parcelaB)],
         ['Valor total a receber','R$ '+brl(entradaB + totalJ)]
       ];
       $('#linhas').innerHTML = lb.map((x,i)=>
