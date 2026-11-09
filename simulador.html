@@ -72,7 +72,6 @@ body.wide .app{max-width:900px}
 .banner .acoes{display:flex;gap:8px;flex-wrap:wrap}
 .banner button{border:0;border-radius:11px;padding:10px 16px;font-size:13px;font-weight:700;color:#fff}
 #btnAjustar{background:#0E7A55}
-#btnContinuar{background:#D12A2A}
 #margemUso{width:100%;border:2px solid var(--line);border-radius:12px;padding:11px 12px;font-weight:600;background:#fff;color:var(--ink)}
 #margemUso:focus{outline:0;border-color:var(--red)}
 .pills button{background:#F5F5F5;border:2px solid transparent;border-radius:14px;padding:12px 6px;font-weight:700;font-size:17px;color:var(--ink);line-height:1.1}
@@ -163,8 +162,7 @@ td input::placeholder{color:#CFCFCF;font-weight:400}
       <div class="banner hidden" id="bannerEntrada">
         <p id="bannerTexto"></p>
         <div class="acoes">
-          <button id="btnAjustar">Ajustar para o mínimo</button>
-          <button id="btnContinuar">Continuar assim mesmo</button>
+          <button id="btnAjustar">Ajustar entrada</button>
         </div>
       </div>
 
@@ -290,7 +288,7 @@ td input::placeholder{color:#CFCFCF;font-weight:400}
     produto:'cessao', tela:'sim', gestorProduto:'cessao',
     descMax:8, modoLiquido:'tabela', comissaoPct:0,
     cessao: cessaoPadrao(), cartao: cartaoPadrao(), boleto: boletoPadrao(),
-    entradaMin:30, boletoLiberado:false,
+    entradaMin:30,
     tabela:0, negociado:0, entrada:0, carencia:30,
     prazo:{cessao:null,promo:null,cartao:null,boleto:null}
   };
@@ -315,7 +313,6 @@ td input::placeholder{color:#CFCFCF;font-weight:400}
     el.addEventListener('input', () => {
       const d = el.value.replace(/\D/g,'').slice(0,12);
       estado[chave] = d ? parseInt(d,10)/100 : 0;
-      estado.boletoLiberado = false;
       aplica();
       if(chave!=='entrada') aplicaSugestao();
       calcular();
@@ -360,11 +357,9 @@ td input::placeholder{color:#CFCFCF;font-weight:400}
 
   $('#btnAjustar').addEventListener('click', ()=>{
     estado.entrada = Math.ceil(estado.negociado * estado.entradaMin) / 100;
-    estado.boletoLiberado = false;
     $('#entradaVal').value = 'R$ '+brl(estado.entrada);
     calcular();
   });
-  $('#btnContinuar').addEventListener('click', ()=>{ estado.boletoLiberado = true; calcular(); });
 
   function montaMargem(){
     const sel = $('#margemUso');
@@ -606,17 +601,13 @@ td input::placeholder{color:#CFCFCF;font-weight:400}
       if(entradaB>=projeto){ notaE.className='nota alerta'; notaE.textContent='A entrada não pode ser igual ou maior que o projeto.'; return zera('Entrada maior que o projeto'); }
       if(pctEnt < estado.entradaMin - 0.0001){
         notaE.className='nota alerta';
-        if(!estado.boletoLiberado){
-          notaE.textContent='Entrada de '+brl(pctEnt)+'% — mínimo de '+brl(estado.entradaMin)+'%';
-          $('#bannerTexto').textContent = 'Valor abaixo do permitido. A entrada está em '+brl(pctEnt)+'% e o mínimo é '+brl(estado.entradaMin)+'%, o que dá R$ '+brl(minEntB)+'.';
-          banner.classList.remove('hidden');
-          return zera('Ajuste a entrada para seguir');
-        }
-        notaE.textContent='Entrada de '+brl(pctEnt)+'% — abaixo do mínimo, liberada pelo representante';
-      } else {
-        estado.boletoLiberado = false;
-        notaE.textContent='Entrada de '+brl(pctEnt)+'% do projeto';
+        notaE.textContent='Entrada abaixo do permitido — mínimo de '+brl(estado.entradaMin)+'%';
+        $('#bannerTexto').textContent = 'Entrada abaixo do permitido. O mínimo é '+brl(estado.entradaMin)+'% do projeto, o que dá R$ '+brl(minEntB)+'.';
+        $('#btnAjustar').textContent = 'Ajustar para '+brl(estado.entradaMin)+'%';
+        banner.classList.remove('hidden');
+        return zera('Ajuste a entrada para seguir com a simulação');
       }
+      notaE.textContent='Entrada de '+brl(pctEnt)+'% do projeto';
       if(!prazo) return zera('Escolha o número de parcelas');
 
       const residual = projeto - entradaB;
