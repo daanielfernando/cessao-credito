@@ -786,13 +786,13 @@ td input::placeholder{color:#CFCFCF;font-weight:400}
 <script>
 (function(){
   /* Código de acesso em base64. Para trocar, gere o base64 do novo código e substitua a linha abaixo. */
-  var ALVO = 'c29sdHVyaTIwMjY=';
+  var ALVO = 'U29sdHVyaUBwYXJjZWxhbWVudG8=';
   var gate = document.getElementById('gate');
   var campo = document.getElementById('gateCod');
   var erro = document.getElementById('gateErro');
   document.body.classList.add('travado');
   function tenta(){
-    var v = (campo.value||'').trim().toLowerCase();
+    var v = (campo.value||'').trim();
     if(v && btoa(v) === ALVO){
       gate.remove();
       document.body.classList.remove('travado');
