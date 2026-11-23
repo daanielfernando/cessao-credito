@@ -1,49 +1,87 @@
-# Simulador de parcelamento — Solturi
+# Simulador de Parcelamento · Solturi Energia Solar
 
-Simulador comercial para uso do time de vendas. Três modalidades: Cessão de crédito Santander,
-Promoção e Cartão de crédito. Arquivo único, sem dependências externas.
+Ferramentas comerciais do time de representantes, construídas em torno da Cessão de Crédito
+Santander (CSC). Arquivos independentes, sem servidor e sem dependências além da fonte do Google.
+
+Atualizado em 23/11/2026.
+
+## Arquivos
+
+| Arquivo | Para que serve |
+|---|---|
+| `index.html` | **Página principal.** Simulador do representante, com tela de acesso. É o que a equipe usa. |
+| `simulador.html` | Mesmo simulador, sem tela de acesso, para rodar embutido no painel. |
+| `painel.html` | Painel do representante (menu lateral, mural de avisos, links, telefones). Opcional. |
+| `schema.sql` | Banco de dados do painel, para rodar no Supabase. Só é necessário se usar o painel. |
+
+Para publicar só o simulador, `index.html` basta.
 
 ## Publicar no GitHub Pages
 
-1. Crie um repositório novo em github.com/new. Nome sugerido: `simulador`. Pode ser público ou privado — o Pages funciona nos dois em contas Free desde 2021.
-2. Envie o arquivo `index.html` para a raiz do repositório (botão **Add file → Upload files**).
-3. Abra **Settings → Pages**.
-4. Em **Source**, escolha **Deploy from a branch**; em **Branch**, selecione `main` e a pasta `/ (root)`. Salve.
-5. Aguarde de 1 a 3 minutos. O link aparece no topo da própria tela de Pages, no formato:
+1. Crie um repositório em github.com/new (nome sugerido: `simulador`). Pode ser privado — o Pages
+   funciona em contas Free desde 2021.
+2. **Add file → Upload files** e envie o `index.html` na raiz. Se for usar o painel, envie também
+   `simulador.html` e `painel.html` na mesma pasta.
+3. **Settings → Pages** → em *Source* escolha **Deploy from a branch**, branch `main`, pasta
+   `/ (root)`. Salve.
+4. Em 1 a 3 minutos o link aparece no topo dessa tela:
    `https://SEU-USUARIO.github.io/simulador/`
 
-Esse é o link para compartilhar com a equipe.
+Para atualizar depois, basta enviar o arquivo novo por cima — o Pages republica em cerca de um minuto.
 
-## Código de acesso
+## Acesso
 
-A página abre pedindo um código. O atual é **solturi2026**.
+A página abre pedindo um código. O atual é:
 
-Para trocar, procure no final do arquivo `index.html` a linha:
-
-```js
-var ALVO = 'c29sdHVyaTIwMjY=';
+```
+Solturi@parcelamento
 ```
 
-Gere o base64 do novo código e substitua o valor entre aspas. No console do navegador (F12):
+Diferencia maiúsculas de minúsculas. Para trocar, localize no fim do `index.html`:
 
 ```js
-btoa('novocodigo')
+var ALVO = 'U29sdHVyaUBwYXJjZWxhbWVudG8=';
 ```
 
-Copie o resultado, cole no lugar, salve e envie o arquivo atualizado ao repositório.
+Gere o base64 do novo código e substitua. No console do navegador (F12):
 
-## Limite dessa proteção
+```js
+btoa('NovaSenha@123')
+```
 
-O código de acesso roda no navegador. Ele impede o acesso casual de quem recebe o link sem
-autorização, mas não resiste a quem sabe abrir o código-fonte da página. Se o repositório for
-público, o arquivo também fica visível pelo próprio GitHub.
+**Limite dessa proteção:** o código roda no navegador. Ele evita o acesso casual de quem recebe o
+link sem autorização, mas não resiste a quem abre o código-fonte da página. Se o repositório for
+público, o arquivo também fica visível pelo próprio GitHub. Para bloqueio real, hospede em
+Cloudflare Pages com Cloudflare Access (gratuito até 50 usuários, entrada por código enviado por
+e-mail).
 
-Para bloqueio real, hospede em Cloudflare Pages com Cloudflare Access (gratuito até 50 usuários,
-entrada por código enviado por e-mail) ou use a proteção por senha da Netlify ou da Vercel, ambas
-em planos pagos. Nesses casos a página só é entregue após a autenticação.
+## As quatro modalidades
 
-## Atualizar as taxas
+**Cessão de crédito** — Tabela CSC Santander. O banco retém um percentual do valor financiado e
+repassa o restante. O representante escolhe como a Solturi deve receber: sobre o valor de tabela,
+sobre o negociado, ou no mínimo possível (tabela −8%). A entrada é calculada para o líquido fechar
+no alvo, e pode ser aumentada — aí o financiado cai e a parcela junto.
 
-Este arquivo não tem painel do gestor. As tabelas de retenção do Santander e de acréscimo do cartão
-estão embutidas no código. Para alterá-las, use a versão completa do simulador, ajuste no painel do
-gestor e gere um novo arquivo.
+**Promoção** — Mesma tabela de retenção, para projetos já com preço promocional. A entrada repõe a
+retenção inteira e o líquido fecha sempre no preço da venda.
+
+**Cartão de crédito** — Acréscimo somado ao valor e diluído nas parcelas. Sem entrada. Até 21x.
+
+**Boleto Solturi** — Entrada mínima obrigatória de 30%; abaixo disso a simulação trava. Saldo com
+juros simples de 2% ao mês a partir da 6ª parcela. Até 15x.
+
+## Tabela de retenção vigente (CSC Santander)
+
+Prazos de 1x a 24x e o 30x vêm da tabela oficial. **Os prazos de 25x a 29x não constam da tabela do
+banco** e estão preenchidos por interpolação linear entre o 24x e o 30x — são estimativas, pendentes
+de confirmação com o Santander.
+
+A condição de 30x tem validade informada até **30/11/2026**. Se não for renovada, apagar a linha 30
+na tabela do gestor.
+
+## Alterar taxas e regras
+
+O `index.html` carrega as tabelas embutidas no código. Para mudanças de taxa, use a versão de gestor
+do simulador (não publicada aqui), ajuste no painel e gere o arquivo novo. O painel do gestor
+controla: tabela de retenção por prazo e carência, acréscimo do cartão, juros do boleto, desconto
+máximo, entrada mínima do boleto e percentual de comissão.
